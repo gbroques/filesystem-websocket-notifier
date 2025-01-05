@@ -2,7 +2,7 @@
 
 Notifies a WebSocket connection about filesystem changes.
 
-Relies on [dmon](https://github.com/septag/dmon) for detecting filesystem changes in a cross-platform way, and [Simple-WebSocket-Server](https://gitlab.com/eidheim/Simple-WebSocket-Server).
+Relies on [dmon](https://github.com/septag/dmon) for detecting filesystem changes in a cross-platform way, and [Simple-WebSocket-Server](https://gitlab.com/eidheim/Simple-WebSocket-Server) for a WebSocket client.
 
 
 ## Usage
