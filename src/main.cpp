@@ -16,12 +16,12 @@ static void watch_callback(dmon_watch_id watch_id, dmon_action action, const cha
     (void)(user);
     (void)(watch_id);
     string rootdirstr = rootdir;
-    string filepathstr = filepath;
+    string filepathstr = rootdirstr + filepath;
     string oldfilepathstr;
     if (oldfilepath != NULL) {
-      oldfilepathstr = oldfilepath;
+      oldfilepathstr = rootdirstr + oldfilepath;
     }
-    string msg = "{\"rootdir\":\"" + rootdirstr + "\",\"filepath\":\"" + filepathstr + "\",";
+    string msg = "{\"filepath\":\"" + filepathstr + "\",";
 
     switch (action) {
     case DMON_ACTION_CREATE:
