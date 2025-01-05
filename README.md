@@ -23,11 +23,11 @@ Currently doesn't write to a secure WebSocket connection (i.e. `wss://`).
 1. Install [Conan](https://conan.io/downloads) - a free and open-source C/C++ package manager.
 2. Create a default Conan profile:
 
-    conan profile detect --force
+       conan profile detect --force
 
 3. Install dmon (**requires** `curl`):
 
-    ./install-dmon.bash
+       ./install-dmon.bash
 
 4. `conan install . --output-folder=build --build=missing`
 
