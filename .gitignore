@@ -1,3 +1,4 @@
 build/
 CMakeUserPresets.json
 src/dmon.h
+node_modules/

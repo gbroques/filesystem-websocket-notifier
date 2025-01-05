@@ -70,3 +70,16 @@ compiler.libcxx=libstdc++11
 compiler.version=11
 os=Linux
 ```
+
+## WebSocket Server
+
+For testing purposes, a basic WebSocket server written in Node.js has been included.
+
+1. Install [Node.js](https://nodejs.org/en).
+2. Install dependencies:
+
+       npm install
+
+3. Start WebSocket server on port 8080:
+
+       npm start
