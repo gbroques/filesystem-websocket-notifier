@@ -1,4 +1,5 @@
 [requires]
+efsw/1.4.1
 simple-websocket-server/2.0.2
 
 [generators]

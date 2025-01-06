@@ -1,45 +1,47 @@
 #include <stdio.h>
+#include "efsw/efsw.hpp"
 #include "simple-websocket-server/client_ws.hpp"
 #include "simple-websocket-server/server_ws.hpp"
-#define DMON_IMPL
-#include "dmon.h"
 
 using namespace std;
 
 using WsServer = SimpleWeb::SocketServer<SimpleWeb::WS>;
 using WsClient = SimpleWeb::SocketClient<SimpleWeb::WS>;
 
-static void watch_callback(dmon_watch_id watch_id, dmon_action action, const char* rootdir,
-                           const char* filepath, const char* oldfilepath, void* user)
-{
-    shared_ptr<WsClient::Connection> connection = *((shared_ptr<WsClient::Connection>*) user);
-    (void)(user);
-    (void)(watch_id);
-    string rootdirstr = rootdir;
-    string filepathstr = rootdirstr + filepath;
-    string oldfilepathstr;
-    if (oldfilepath != NULL) {
-      oldfilepathstr = rootdirstr + oldfilepath;
-    }
-    string msg = "{\"filepath\":\"" + filepathstr + "\",";
+class UpdateListener : public efsw::FileWatchListener {
+  private:
+    shared_ptr<WsClient::Connection> connection;
 
-    switch (action) {
-    case DMON_ACTION_CREATE:
-      msg.append("\"action\":\"CREATE\"}");
-      break;
-    case DMON_ACTION_DELETE:
-      msg.append("\"action\":\"DELETE\"}");
-      break;
-    case DMON_ACTION_MODIFY:
-      msg.append("\"action\":\"MODIFY\"}");
-      break;
-    case DMON_ACTION_MOVE:
-      msg.append("\"oldfilepath\":\"" + oldfilepathstr + "\",\"action\":\"MOVE\"}");
-      break;
+  public:
+    UpdateListener(shared_ptr<WsClient::Connection> _connection) {
+      connection = _connection;
     }
-    connection->send(msg);
-    cout << msg << endl;
-}
+
+    void handleFileAction(efsw::WatchID watchid, const std::string& dir,
+                          const std::string& filename, efsw::Action action,
+                          std::string oldFilename) override {
+      string oldFilepath = dir + filename;
+      string msg = "{\"filepath\":\"" + dir + filename + "\",";
+      switch (action) {
+        case efsw::Actions::Add:
+          msg.append("\"action\":\"ADD\"}");
+          break;
+        case efsw::Actions::Delete:
+          msg.append("\"action\":\"DELETE\"}");
+          break;
+        case efsw::Actions::Modified:
+          msg.append("\"action\":\"MODIFIED\"}");
+          break;
+        case efsw::Actions::Moved:
+          msg.append("\"oldFilepath\":\"" + oldFilepath + "\",\"action\":\"MOVE\"}");
+          break;
+        default:
+          std::cout << "Unrecognized action" << std::endl;
+      }
+      connection->send(msg);
+      cout << msg << endl;
+    }
+};
 
 int main(int argc, char* argv[]) {
   if (argc > 2) {
@@ -50,13 +52,19 @@ int main(int argc, char* argv[]) {
     // https://gitlab.com/eidheim/Simple-WebSocket-Server/-/blob/v2.0.2/ws_examples.cpp?ref_type=tags#L109-146
     WsClient client(websocket_host_port_path);
 
-    shared_ptr<WsClient::Connection> connection_pointer;
-
-    client.on_open = [&connection_pointer, &websocket_host_port_path, &watch_dir](shared_ptr<WsClient::Connection> connection) {
+    client.on_open = [&websocket_host_port_path, &watch_dir](shared_ptr<WsClient::Connection> connection) {
       cout << "Connected to ws://" << websocket_host_port_path << endl;
-      connection_pointer = connection;
-      dmon_init();
-      cout << "Watching " + watch_dir + " for changes." << endl;
+      efsw::FileWatcher* fileWatcher = new efsw::FileWatcher();
+      UpdateListener* listener = new UpdateListener(connection);
+      bool recursive = true;
+      efsw::WatchID watchID = fileWatcher->addWatch(watch_dir, listener, recursive);
+      if (watchID < 0) {
+        cout << "Error " << watchID <<  " watching directory " << watch_dir << endl;
+        cout << "See https://github.com/SpartanJ/efsw/blob/1.4.1/include/efsw/efsw.h#L76-L85 for error code." << endl;
+        exit(1);
+      }
+      fileWatcher->watch();
+      cout << "[Watch #" << watchID  << "] Watching " + watch_dir + " for changes." << endl;
     };
 
     client.on_close = [&websocket_host_port_path](shared_ptr<WsClient::Connection> /*connection*/, int status, const string & /*reason*/) {
@@ -67,13 +75,8 @@ int main(int argc, char* argv[]) {
     client.on_error = [](shared_ptr<WsClient::Connection> /*connection*/, const SimpleWeb::error_code &ec) {
       cout << "Error: " << ec << ", error message: " << ec.message() << endl;
     };
-
-    // dmon code adapted from the following example:
-    // https://github.com/septag/dmon/blob/a56fdb90e787fa2acecb4a956ec7afd400d1715c/test.c
-    dmon_watch(argv[1], watch_callback, DMON_WATCHFLAGS_RECURSIVE, &connection_pointer);
     cout << "Connecting to ws://" << websocket_host_port_path << endl;
     client.start();
-    dmon_deinit();
   } else {
     cout << "Usage: <watch_dir> <websocket_host_port_path>" << endl;
     cout << "    watch_dir - directory to recursively watch for changes" << endl;
