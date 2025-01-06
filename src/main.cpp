@@ -1,44 +1,25 @@
 #include <stdio.h>
+#include "libfswatch/c++/monitor.hpp"
+#include "libfswatch/c++/monitor_factory.hpp"
 #include "simple-websocket-server/client_ws.hpp"
 #include "simple-websocket-server/server_ws.hpp"
-#define DMON_IMPL
-#include "dmon.h"
 
 using namespace std;
 
-using WsServer = SimpleWeb::SocketServer<SimpleWeb::WS>;
 using WsClient = SimpleWeb::SocketClient<SimpleWeb::WS>;
 
-static void watch_callback(dmon_watch_id watch_id, dmon_action action, const char* rootdir,
-                           const char* filepath, const char* oldfilepath, void* user)
+static void process_events(const vector<fsw::event>& events, void* user)
 {
-    shared_ptr<WsClient::Connection> connection = *((shared_ptr<WsClient::Connection>*) user);
-    (void)(user);
-    (void)(watch_id);
-    string rootdirstr = rootdir;
-    string filepathstr = rootdirstr + filepath;
-    string oldfilepathstr;
-    if (oldfilepath != NULL) {
-      oldfilepathstr = rootdirstr + oldfilepath;
-    }
-    string msg = "{\"filepath\":\"" + filepathstr + "\",";
+  shared_ptr<WsClient::Connection> connection = *((shared_ptr<WsClient::Connection>*) user);
 
-    switch (action) {
-    case DMON_ACTION_CREATE:
-      msg.append("\"action\":\"CREATE\"}");
-      break;
-    case DMON_ACTION_DELETE:
-      msg.append("\"action\":\"DELETE\"}");
-      break;
-    case DMON_ACTION_MODIFY:
-      msg.append("\"action\":\"MODIFY\"}");
-      break;
-    case DMON_ACTION_MOVE:
-      msg.append("\"oldfilepath\":\"" + oldfilepathstr + "\",\"action\":\"MOVE\"}");
-      break;
+  for (fsw::event event : events) {
+    cout << event.get_path() << " ";
+    for (fsw_event_flag flag : event.get_flags()) {
+      
+      cout << fsw::event::get_event_flag_name(flag) << " ";
     }
-    connection->send(msg);
-    cout << msg << endl;
+    cout << endl;
+  }
 }
 
 int main(int argc, char* argv[]) {
@@ -50,13 +31,20 @@ int main(int argc, char* argv[]) {
     // https://gitlab.com/eidheim/Simple-WebSocket-Server/-/blob/v2.0.2/ws_examples.cpp?ref_type=tags#L109-146
     WsClient client(websocket_host_port_path);
 
-    shared_ptr<WsClient::Connection> connection_pointer;
 
-    client.on_open = [&connection_pointer, &websocket_host_port_path, &watch_dir](shared_ptr<WsClient::Connection> connection) {
+    client.on_open = [&websocket_host_port_path, &watch_dir](shared_ptr<WsClient::Connection> connection) {
       cout << "Connected to ws://" << websocket_host_port_path << endl;
-      connection_pointer = connection;
-      dmon_init();
+      vector<string> paths = {watch_dir};
+      fsw::monitor *active_monitor =
+        fsw::monitor_factory::create_monitor(fsw_monitor_type::system_default_monitor_type,
+                                             paths,
+                                             process_events,
+                                             &connection);
+      
+      active_monitor->set_event_type_filters({{Created}, {Updated}, {Removed}, {Renamed}});
+      active_monitor->set_recursive(true);
       cout << "Watching " + watch_dir + " for changes." << endl;
+      active_monitor->start();
     };
 
     client.on_close = [&websocket_host_port_path](shared_ptr<WsClient::Connection> /*connection*/, int status, const string & /*reason*/) {
@@ -68,12 +56,8 @@ int main(int argc, char* argv[]) {
       cout << "Error: " << ec << ", error message: " << ec.message() << endl;
     };
 
-    // dmon code adapted from the following example:
-    // https://github.com/septag/dmon/blob/a56fdb90e787fa2acecb4a956ec7afd400d1715c/test.c
-    dmon_watch(argv[1], watch_callback, DMON_WATCHFLAGS_RECURSIVE, &connection_pointer);
     cout << "Connecting to ws://" << websocket_host_port_path << endl;
     client.start();
-    dmon_deinit();
   } else {
     cout << "Usage: <watch_dir> <websocket_host_port_path>" << endl;
     cout << "    watch_dir - directory to recursively watch for changes" << endl;

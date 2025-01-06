@@ -1,4 +1,5 @@
 [requires]
+fswatch/1.17.1.cci.20220902
 simple-websocket-server/2.0.2
 
 [generators]
