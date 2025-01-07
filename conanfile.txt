@@ -1,6 +1,7 @@
 [requires]
 efsw/1.4.1
 simple-websocket-server/2.0.2
+boost/1.86.0
 
 [generators]
 CMakeDeps
