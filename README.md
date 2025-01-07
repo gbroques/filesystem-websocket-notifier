@@ -2,7 +2,7 @@
 
 Notifies a WebSocket connection about filesystem changes.
 
-Relies on [dmon](https://github.com/septag/dmon) for detecting filesystem changes in a cross-platform way, and [Simple-WebSocket-Server](https://gitlab.com/eidheim/Simple-WebSocket-Server) for a WebSocket client.
+Relies on [efsw](https://github.com/SpartanJ/efsw) for detecting filesystem changes in a cross-platform way, and [Simple-WebSocket-Server](https://gitlab.com/eidheim/Simple-WebSocket-Server) for a WebSocket client.
 
 
 ## Usage
@@ -25,11 +25,7 @@ Currently doesn't write to a secure WebSocket connection (i.e. `wss://`).
 
        conan profile detect --force
 
-3. Install dmon (**requires** `curl`):
-
-       ./install-dmon.bash
-
-4. `conan install . --output-folder=build --build=missing`
+3. `conan install . --output-folder=build --build=missing`
 
 ## How to Build
 
